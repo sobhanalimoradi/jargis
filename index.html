@@ -3,88 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Screen Assistant</title>
+    <title>AI Screen Assistant v2</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Adds a pulse effect when the AI is "thinking" */
+        .thinking { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    </style>
 </head>
-<body class="bg-gray-900 text-white p-8">
-    <div class="max-w-3xl mx-auto">
-        <h1 class="text-3xl font-bold mb-4">AI Screen Assistant</h1>
-        
-        <div class="mb-6 p-4 bg-gray-800 rounded">
-            <label class="block mb-2">Enter Gemini API Key:</label>
-            <input type="password" id="apiKey" class="w-full p-2 bg-gray-700 rounded border border-gray-600" placeholder="paste key here...">
-            <p class="text-xs text-gray-400 mt-2 italic">*Stored only in your browser session.</p>
-        </div>
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen">
 
-        <div class="flex gap-4 mb-6">
-            <button id="startBtn" class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-500">1. Select Screen</button>
-            <button id="analyzeBtn" class="bg-green-600 px-4 py-2 rounded hover:bg-green-500 hidden">2. Ask AI for Help</button>
-        </div>
+    <div class="max-w-4xl mx-auto p-6">
+        <header class="mb-8 border-b border-slate-700 pb-4">
+            <h1 class="text-3xl font-extrabold text-blue-400">AI Screen Assistant</h1>
+            <p class="text-slate-400">Capture your screen and let Gemini AI guide you.</p>
+        </header>
 
-        <div class="grid grid-cols-1 gap-6">
-            <video id="preview" autoplay muted class="w-full rounded border-2 border-gray-700 hidden"></video>
-            <canvas id="snapshot" class="hidden"></canvas>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             
-            <div id="response" class="p-4 bg-gray-800 rounded min-h-[100px] border-l-4 border-blue-500">
-                AI feedback will appear here...
+            <div class="space-y-6">
+                <div class="bg-slate-800 p-4 rounded-xl shadow-lg border border-slate-700">
+                    <h2 class="font-bold mb-3 text-sm uppercase tracking-wider text-slate-400">Configuration</h2>
+                    <label class="block text-xs mb-1">Gemini API Key:</label>
+                    <input type="password" id="apiKey" 
+                           class="w-full p-2 bg-slate-900 rounded border border-slate-600 focus:border-blue-500 outline-none text-sm" 
+                           placeholder="Paste AI Studio Key here">
+                    <p class="text-[10px] text-slate-500 mt-2">Your key is never saved to a server.</p>
+                </div>
+
+                <div class="flex flex-col gap-3">
+                    <button id="startBtn" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-lg font-bold transition shadow-lg">
+                        1. Share Screen
+                    </button>
+                    <button id="analyzeBtn" class="w-full bg-emerald-600 hover:bg-emerald-500 py-3 rounded-lg font-bold transition shadow-lg hidden">
+                        2. Analyze Screen
+                    </button>
+                </div>
+            </div>
+
+            <div class="md:col-span-2 space-y-6">
+                <div class="relative bg-black rounded-xl overflow-hidden border-2 border-slate-800 shadow-2xl">
+                    <video id="preview" autoplay muted class="w-full aspect-video object-contain"></video>
+                    <div id="videoPlaceholder" class="absolute inset-0 flex items-center justify-center text-slate-600 italic">
+                        No screen selected
+                    </div>
+                </div>
+
+                <div id="responseContainer" class="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-inner min-h-[150px]">
+                    <h3 class="text-blue-400 font-bold mb-2 flex items-center gap-2">
+                        <span id="statusIcon">🤖</span> AI Advice:
+                    </h3>
+                    <div id="responseText" class="text-slate-300 leading-relaxed whitespace-pre-wrap">
+                        Click "Share Screen" to begin.
+                    </div>
+                </div>
             </div>
         </div>
+
+        <canvas id="snapshot" class="hidden"></canvas>
     </div>
 
     <script>
-        let stream = null;
         const video = document.getElementById('preview');
         const canvas = document.getElementById('snapshot');
-        const responseDiv = document.getElementById('response');
+        const responseText = document.getElementById('responseText');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const videoPlaceholder = document.getElementById('videoPlaceholder');
+        const statusIcon = document.getElementById('statusIcon');
 
-        // Start Screen Capture
-        document.getElementById('startBtn').onclick = async () => {
-            try {
-                stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-                video.srcObject = stream;
-                video.classList.remove('hidden');
-                document.getElementById('analyzeBtn').classList.remove('hidden');
-            } catch (err) {
-                alert("Error: " + err.message);
-            }
-        };
-
-        // Capture Frame and Send to AI
-        document.getElementById('analyzeBtn').onclick = async () => {
-            const apiKey = document.getElementById('apiKey').value;
-            if (!apiKey) return alert("Please enter an API Key first!");
-
-            responseDiv.innerText = "Analyzing your screen...";
-
-            // Draw current video frame to canvas
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Convert to Base64
-            const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
-
-            // Call Gemini API
-            try {
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [
-                                { text: "Look at this screenshot of my current screen. Explain what is happening and suggest exactly what I should do next to be productive." },
-                                { inline_data: { mime_type: "image/jpeg", data: base64Image } }
-                            ]
-                        }]
-                    })
-                });
-                const data = await res.json();
-                responseDiv.innerText = data.candidates[0].content.parts[0].text;
-            } catch (err) {
-                responseDiv.innerText = "Error calling AI: " + err.message;
-            }
-        };
-    </script>
-</body>
-</html>
+        let screenStream = null;
