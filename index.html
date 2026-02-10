@@ -3,131 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Assistant | System Core</title>
+    <title>AI Core | Screen Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @keyframes pulse-glow {
-            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
-            70% { box-shadow: 0 0 0 15px rgba(34, 197, 94, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-        }
-        .ai-orb {
-            animation: pulse-glow 2s infinite;
-            background: radial-gradient(circle, #22c55e 0%, #166534 100%);
-        }
-        .glass {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        body { background-color: #020617; color: white; font-family: 'Inter', sans-serif; }
-        .hidden-panel { display: none; }
-        .active-panel { display: flex; }
+        body { background: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; overflow: hidden; }
+        .orb { background: radial-gradient(circle, #22c55e 0%, #064e3b 100%); filter: blur(2px); box-shadow: 0 0 40px #166534; }
+        .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        .recording-pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen p-6 overflow-hidden">
+<body class="flex items-center justify-center min-h-screen">
 
-    <div id="panel-idle" class="active-panel flex-col items-center space-y-8">
-        <div onclick="unlockRequest()" class="ai-orb w-32 h-32 rounded-full cursor-pointer flex items-center justify-center">
-            <div class="w-24 h-24 rounded-full border-2 border-white/20 animate-spin-slow"></div>
-        </div>
-        <div class="text-center">
-            <h1 class="text-2xl font-light tracking-widest text-green-400">GEMINI CORE</h1>
-            <p class="text-slate-500 text-xs mt-2 uppercase tracking-tighter">System Ready | Tap to Initialize</p>
-        </div>
-    </div>
-
-    <div id="panel-auth" class="hidden-panel flex-col items-center space-y-6 w-full max-w-xs">
-        <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest">Security Override</h2>
-        <input type="password" id="pinInput" placeholder="••••" maxlength="4" 
-            class="w-full bg-transparent border-b-2 border-green-500 text-center text-4xl py-2 outline-none tracking-[0.5em]">
-        <button onclick="verifyPin()" class="w-full py-4 glass rounded-2xl font-bold hover:bg-white/10 transition-all uppercase text-xs">Authorize</button>
-        <button onclick="showPanel('idle')" class="text-slate-600 text-[10px] uppercase">Cancel</button>
-    </div>
-
-    <div id="panel-main" class="hidden-panel flex-col w-full max-w-md h-[80vh] glass rounded-[3rem] p-6 relative">
-        <div class="flex justify-between items-center mb-8">
-            <div class="flex items-center gap-2">
-                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span class="text-[10px] font-bold uppercase text-slate-400">Active Session</span>
+    <div id="ai-interface" class="w-full max-w-lg h-[90vh] glass rounded-[3rem] flex flex-col p-8 relative shadow-2xl">
+        
+        <div class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-3">
+                <div id="status-light" class="w-3 h-3 bg-green-500 rounded-full orb"></div>
+                <span id="status-text" class="text-[10px] font-bold uppercase tracking-widest text-slate-400">AI Core Active</span>
             </div>
-            <button onclick="location.reload()" class="text-slate-500 hover:text-white transition-colors">
+            <div id="recording-indicator" class="hidden flex items-center gap-2 bg-red-500/20 px-3 py-1 rounded-full border border-red-500/50">
+                <div class="w-2 h-2 bg-red-500 rounded-full recording-pulse"></div>
+                <span class="text-[10px] font-bold text-red-500 uppercase">Recording Screen</span>
+            </div>
+        </div>
+
+        <div id="output-log" class="flex-grow overflow-y-auto space-y-4 mb-6 pr-2 font-mono text-sm scroll-smooth">
+            <div class="text-green-500 text-xs">> Initializing Neural Link...</div>
+            <div class="text-green-500 text-xs">> Screen Capture Modules: Ready.</div>
+            <div class="bg-white/5 p-4 rounded-2xl border border-white/10 text-slate-200">
+                System online. I can monitor your screen and provide real-time analysis. Use the capture button to begin.
+            </div>
+        </div>
+
+        <div class="space-y-4">
+            <button id="record-btn" onclick="toggleScreenCapture()" class="w-full py-4 rounded-2xl bg-white/10 border border-white/20 hover:bg-white/20 transition-all flex items-center justify-center gap-3 font-bold text-xs uppercase tracking-widest">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
+                <span id="record-text">Capture Screen</span>
             </button>
-        </div>
 
-        <div class="flex-grow overflow-y-auto space-y-4 mb-4 pr-2 text-sm leading-relaxed" id="outputArea">
-            <div class="text-green-400 font-mono text-xs opacity-70">> System decrypted. Hello, Gemini.</div>
-            <div class="p-4 bg-white/5 rounded-2xl border border-white/10">
-                Welcome back. I am monitoring all local systems. How shall we proceed today?
+            <div class="relative">
+                <input type="text" id="ai-input" placeholder="Give a command..." 
+                    class="w-full bg-slate-900 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-green-500 transition-all text-sm">
+                <button onclick="aiCommand()" class="absolute right-2 top-2 bottom-2 px-6 bg-green-600 rounded-xl font-bold text-xs hover:bg-green-500">SEND</button>
             </div>
         </div>
 
-        <div class="relative mt-auto">
-            <input type="text" id="userInput" placeholder="Ask anything..." 
-                class="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 outline-none focus:border-green-500/50 transition-all">
-            <button onclick="processInput()" class="absolute right-3 top-2 bottom-2 px-4 bg-green-600 rounded-xl font-bold text-xs hover:bg-green-500 transition-all">SEND</button>
-        </div>
+        <video id="screen-preview" autoplay class="hidden"></video>
     </div>
 
     <script>
-        const MASTER_PIN = "0912";
+        let mediaRecorder;
+        let recordedChunks = [];
+        let screenStream = null;
 
-        function showPanel(panelId) {
-            document.querySelectorAll('.flex-col').forEach(p => p.classList.add('hidden-panel'));
-            document.querySelectorAll('.flex-col').forEach(p => p.classList.remove('active-panel'));
-            
-            const target = document.getElementById('panel-' + panelId);
-            target.classList.remove('hidden-panel');
-            target.classList.add('active-panel');
-        }
+        // 1. THE AI "BRAIN" LOGIC
+        function aiCommand() {
+            const input = document.getElementById('ai-input');
+            const log = document.getElementById('output-log');
+            if (!input.value) return;
 
-        function unlockRequest() {
-            showPanel('auth');
-            document.getElementById('pinInput').focus();
-        }
+            // Add user message
+            addLog("USER: " + input.value, "text-slate-400 italic");
 
-        function verifyPin() {
-            const input = document.getElementById('pinInput').value;
-            if(input === MASTER_PIN) {
-                showPanel('main');
-            } else {
-                alert("ACCESS DENIED");
-                document.getElementById('pinInput').value = '';
-            }
-        }
+            // AI "Thinking" Simulation
+            const cmd = input.value.toLowerCase();
+            setTimeout(() => {
+                if (cmd.includes("record") || cmd.includes("capture")) {
+                    addLog("AI: Initializing screen capture protocol...", "text-green-400");
+                    toggleScreenCapture();
+                } else if (cmd.includes("status")) {
+                    addLog("AI: All systems nominal. Storage 14%, Neural Load 2%.", "text-green-400");
+                } else {
+                    addLog("AI: Command processed. Analyzing visual data...", "text-green-400");
+                }
+            }, 600);
 
-        function processInput() {
-            const input = document.getElementById('userInput');
-            const output = document.getElementById('outputArea');
-            
-            if(input.value.trim() === "") return;
-
-            // Simple AI Response Logic
-            const userDiv = document.createElement('div');
-            userDiv.className = "text-right text-slate-400 italic text-xs mb-2";
-            userDiv.innerText = "YOU: " + input.value;
-            
-            const aiDiv = document.createElement('div');
-            aiDiv.className = "p-4 bg-green-600/10 rounded-2xl border border-green-500/20 text-green-100";
-            aiDiv.innerText = "Processing request: " + input.value + "... (Functionality online)";
-
-            output.appendChild(userDiv);
-            output.appendChild(aiDiv);
-            
             input.value = "";
-            output.scrollTop = output.scrollHeight;
         }
 
-        // Allow Enter key for PIN and Input
-        document.addEventListener('keypress', (e) => {
-            if(e.key === 'Enter') {
-                if(document.getElementById('panel-auth').classList.contains('active-panel')) verifyPin();
-                else if(document.getElementById('panel-main').classList.contains('active-panel')) processInput();
+        function addLog(text, classes) {
+            const log = document.getElementById('output-log');
+            const entry = document.createElement('div');
+            entry.className = `p-3 rounded-xl border border-white/5 bg-white/5 ${classes}`;
+            entry.innerText = text;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // 2. SCREEN RECORDING ENGINE
+        async function toggleScreenCapture() {
+            const indicator = document.getElementById('recording-indicator');
+            const recordText = document.getElementById('record-text');
+
+            if (!screenStream) {
+                try {
+                    // Start Capture
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({
+                        video: { cursor: "always" },
+                        audio: true
+                    });
+
+                    indicator.classList.remove('hidden');
+                    recordText.innerText = "Stop Capturing";
+                    addLog("SYSTEM: Screen link established.", "text-blue-400 font-bold");
+
+                    // Handle stop from the browser's native button
+                    screenStream.getVideoTracks()[0].onended = () => stopCapture();
+
+                } catch (err) {
+                    addLog("ERROR: Capture rejected by user.", "text-red-500");
+                }
+            } else {
+                stopCapture();
             }
-        });
-    </script>
-</body>
-</html>
+        }
+
+        function stopCapture() {
+            const indicator = document.getElementById('recording-indicator');
+            const recordText = document.getElementById('record-text');
+            
+            let tracks = screenStream.getTracks();
+            tracks.forEach(track => track.stop());
+            screenStream = null;
+
+            indicator.classList.add('hidden');
+            recordText.innerText = "Capture Screen";
+            addLog("SYSTEM: Feed terminated. Video data archived.", "text-yellow-500");
+        }
+
+        // ENTER KEY SUPPORT
+        document.getElementById('ai-
