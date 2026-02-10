@@ -5,16 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="importmap">
-      {
-        "imports": {
-          "@google/generative-ai": "https://esm.run/@google/generative-ai"
-        }
-      }
-    </script>
     <style>
         body { background: #020617; color: #e2e8f0; font-family: sans-serif; }
         .terminal { background: #0f172a; border: 1px solid #1e293b; }
+        .user-msg { color: #60a5fa; font-weight: bold; margin-top: 10px; }
+        .ai-msg { color: #f8fafc; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 4px; margin-bottom: 10px; }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4">
@@ -23,89 +18,104 @@
         
         <div class="space-y-1">
             <p class="text-[10px] font-bold text-slate-500 uppercase px-1">Gemini API Key</p>
-            <input type="text" id="api-key" placeholder="Enter your key here..." 
-                class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-green-400 outline-none focus:border-blue-500">
+            <input type="text" id="apiKey" placeholder="Paste AI Key Here" 
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-green-400 outline-none">
         </div>
 
-        <div id="log" class="terminal h-96 w-full p-4 rounded-xl overflow-y-auto font-mono text-xs space-y-3 shadow-inner">
-            <div class="text-slate-500">System Ready.</div>
+        <div id="log" class="terminal h-96 w-full p-4 rounded-xl overflow-y-auto font-mono text-xs shadow-inner">
+            <div class="text-slate-500 italic">Ready. Enter key and ask a question.</div>
         </div>
 
         <div class="space-y-3">
             <div class="flex gap-2">
-                <input type="text" id="cmd-input" placeholder="Message Gemini..." 
+                <input type="text" id="userInput" placeholder="Ask Gemini something..." 
                     class="flex-grow bg-slate-900 border border-slate-700 rounded-lg p-4 outline-none focus:border-blue-500 text-sm">
-                <button onclick="handleInteraction()" id="run-btn" class="bg-blue-600 hover:bg-blue-500 px-6 rounded-lg font-bold text-xs uppercase">Send</button>
+                <button onclick="askGemini()" id="sendBtn" class="bg-blue-600 px-6 rounded-lg font-bold text-xs uppercase hover:bg-blue-500">Send</button>
             </div>
             
-            <div class="flex gap-2">
-                <button onclick="toggleCapture()" id="manual-btn" class="flex-grow py-3 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-700 transition-all">
-                    Screen Capture
-                </button>
-                <button onclick="document.getElementById('log').innerHTML=''" class="px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-bold uppercase hover:bg-red-900/30 transition-all">
-                    Clear
-                </button>
-            </div>
+            <button onclick="toggleScreen()" id="screenBtn" class="w-full py-3 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-700">
+                Screen Capture
+            </button>
         </div>
     </div>
 
-    <script type="module">
-        import { GoogleGenerativeAI } from "@google/generative-ai";
+    <script>
+        let screenStream = null;
 
-        let stream = null;
+        async function askGemini() {
+            const key = document.getElementById('apiKey').value.trim();
+            const input = document.getElementById('userInput');
+            const log = document.getElementById('log');
+            const btn = document.getElementById('sendBtn');
+            const question = input.value;
 
-        window.handleInteraction = async function() {
-            const key = document.getElementById('api-key').value.trim();
-            const input = document.getElementById('cmd-input');
-            const prompt = input.value.trim();
-            const btn = document.getElementById('run-btn');
+            if (!key) return alert("Please paste your API Key first.");
+            if (!question) return;
 
-            if (!prompt) return;
-            addLog(`YOU: ${prompt}`, "text-blue-400 font-bold");
+            // Display user question
+            const uDiv = document.createElement('div');
+            uDiv.className = "user-msg";
+            uDiv.innerText = "YOU: " + question;
+            log.appendChild(uDiv);
+            
             input.value = "";
+            btn.disabled = true;
+            btn.innerText = "...";
 
-            if (!key) {
-                addLog("ERROR: Paste your API key in the top box first.", "text-red-500");
-                return;
-            }
+            // THE DIRECT API CALL (No SDK needed)
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+            
+            const payload = {
+                contents: [{ parts: [{ text: question }] }]
+            };
 
             try {
-                btn.disabled = true;
-                const genAI = new GoogleGenerativeAI(key);
-                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-                
-                const result = await model.generateContent(prompt);
-                const response = await result.response;
-                addLog(`AI: ${response.text()}`, "text-slate-200");
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                const aiText = data.candidates[0].content.parts[0].text;
+
+                const aDiv = document.createElement('div');
+                aDiv.className = "ai-msg";
+                aDiv.innerText = "GEMINI: " + aiText;
+                log.appendChild(aDiv);
+
             } catch (err) {
-                addLog(`AI ERROR: Check if your key is correct.`, "text-red-500");
-                console.error(err);
+                const eDiv = document.createElement('div');
+                eDiv.className = "text-red-500 mt-2";
+                eDiv.innerText = "SYSTEM ERROR: API Key might be invalid or restricted.";
+                log.appendChild(eDiv);
             } finally {
                 btn.disabled = false;
+                btn.innerText = "Send";
+                log.scrollTop = log.scrollHeight;
             }
         }
 
-        window.toggleCapture = async function() {
-            const btn = document.getElementById('manual-btn');
-            if (!stream) {
+        async function toggleScreen() {
+            const btn = document.getElementById('screenBtn');
+            if (!screenStream) {
                 try {
-                    stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
                     btn.innerText = "Stop Capture";
-                    btn.classList.add("text-red-500", "border-red-500/50");
-                    addLog("Screen sharing active.", "text-yellow-500");
-                } catch (err) {
-                    addLog("Capture cancelled.", "text-red-400");
-                }
+                    btn.classList.add("text-red-500");
+                } catch (err) { console.log("Capture cancelled"); }
             } else {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
+                screenStream.getTracks().forEach(t => t.stop());
+                screenStream = null;
                 btn.innerText = "Screen Capture";
-                btn.classList.remove("text-red-500", "border-red-500/50");
-                addLog("Capture stopped.", "text-slate-500");
+                btn.classList.remove("text-red-500");
             }
         }
 
-        function addLog(msg, color) {
-            const log = document.getElementById('log');
-            const div = document.createElement('div');
-            div.className = `border-b border
+        // Enter key support
+        document.getElementById('userInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') askGemini();
+        });
+    </script>
+</body>
+</html>
