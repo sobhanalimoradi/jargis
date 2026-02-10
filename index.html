@@ -6,33 +6,33 @@
     <title>AI Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: #020617; color: #e2e8f0; font-family: sans-serif; }
-        .terminal { background: #0f172a; border: 1px solid #1e293b; }
+        body { background: #020617; color: #f1f5f9; font-family: sans-serif; }
+        .terminal { background: #0f172a; border: 1px solid #1e293b; transition: all 0.3s; }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4">
 
     <div class="w-full max-w-lg space-y-4">
         
-        <div class="space-y-1">
-            <p class="text-[10px] font-bold text-slate-500 uppercase px-1">Gemini API Key</p>
+        <div>
+            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Gemini API Key</label>
             <input type="text" id="apiKey" placeholder="Paste Key Here" 
-                class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-green-400 outline-none">
+                class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-green-400 outline-none focus:border-blue-500">
         </div>
 
-        <div id="log" class="terminal h-96 w-full p-4 rounded-xl overflow-y-auto font-mono text-xs shadow-inner space-y-2">
-            <div class="text-slate-500 italic">System Ready.</div>
+        <div id="log" class="terminal h-80 w-full p-4 rounded-xl overflow-y-auto font-mono text-xs space-y-2 shadow-2xl">
+            <div class="text-slate-500 italic">Core Initialized. Waiting for Key...</div>
         </div>
 
         <div class="space-y-3">
             <div class="flex gap-2">
-                <input type="text" id="userInput" placeholder="Ask Gemini..." 
-                    class="flex-grow bg-slate-900 border border-slate-700 rounded-lg p-4 outline-none text-sm">
-                <button onclick="askGemini()" id="sendBtn" class="bg-blue-600 px-6 rounded-lg font-bold text-xs uppercase">Send</button>
+                <input type="text" id="userInput" placeholder="Type a message..." 
+                    class="flex-grow bg-slate-950 border border-slate-800 rounded-lg p-4 outline-none text-sm focus:border-blue-500">
+                <button onclick="askGemini()" id="sendBtn" class="bg-blue-700 hover:bg-blue-600 px-6 rounded-lg font-bold text-xs uppercase transition-colors">Send</button>
             </div>
             
-            <button onclick="toggleScreen()" id="screenBtn" class="w-full py-3 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-bold uppercase">
-                Screen Capture
+            <button onclick="toggleScreen()" id="screenBtn" class="w-full py-3 bg-slate-900 border border-slate-800 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-800 tracking-widest transition-all">
+                Toggle Screen Capture
             </button>
         </div>
     </div>
@@ -43,7 +43,7 @@
         function addLog(msg, color = "text-slate-300") {
             const log = document.getElementById('log');
             const div = document.createElement('div');
-            div.className = `pb-1 ${color}`;
+            div.className = `border-b border-white/5 pb-2 ${color}`;
             div.innerText = msg;
             log.appendChild(div);
             log.scrollTop = log.scrollHeight;
@@ -53,15 +53,17 @@
             const key = document.getElementById('apiKey').value.trim();
             const input = document.getElementById('userInput');
             const question = input.value;
+            const btn = document.getElementById('sendBtn');
 
-            if (!key) return alert("Paste API Key first.");
+            if (!key) return addLog("SYSTEM: Missing API Key.", "text-red-400");
             if (!question) return;
 
             addLog("YOU: " + question, "text-blue-400 font-bold");
             input.value = "";
+            btn.disabled = true;
 
-            // UPDATED STABLE URL
-            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${key}`;
+            // Using v1beta for better compatibility with Flash models
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
 
             try {
                 const response = await fetch(url, {
@@ -74,18 +76,20 @@
 
                 const data = await response.json();
 
-                if (response.status === 404) {
-                    addLog("ERROR 404: Google could not find the model. Check the URL.", "text-red-500");
-                } else if (response.status === 403) {
-                    addLog("ERROR 403: Key is restricted or invalid.", "text-red-500");
-                } else if (data.candidates && data.candidates[0]) {
-                    addLog("GEMINI: " + data.candidates[0].content.parts[0].text, "text-white");
+                if (response.ok) {
+                    const aiResponse = data.candidates[0].content.parts[0].text;
+                    addLog("AI: " + aiResponse, "text-slate-100");
                 } else {
-                    addLog("SYSTEM: Unexpected response format.", "text-yellow-500");
+                    console.error("Full Error Data:", data);
+                    addLog(`ERROR ${response.status}: ${data.error ? data.error.message : 'Unknown Error'}`, "text-red-500");
                 }
 
             } catch (err) {
-                addLog("CONNECTION ERROR: Could not reach Google.", "text-red-500");
+                addLog("CONNECTION ERROR: Check console (F12) for details.", "text-red-500");
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                log.scrollTop = log.scrollHeight;
             }
         }
 
@@ -95,12 +99,14 @@
                 try {
                     screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
                     btn.innerText = "Stop Capture";
-                    addLog("SYSTEM: Screen capture active.", "text-yellow-500");
-                } catch (err) { addLog("SYSTEM: Capture cancelled."); }
+                    btn.classList.add("text-red-500");
+                    addLog("SYSTEM: Capture stream active.", "text-yellow-500");
+                } catch (err) { addLog("SYSTEM: Capture denied."); }
             } else {
                 screenStream.getTracks().forEach(t => t.stop());
                 screenStream = null;
-                btn.innerText = "Screen Capture";
+                btn.innerText = "Toggle Screen Capture";
+                btn.classList.remove("text-red-500");
                 addLog("SYSTEM: Capture stopped.");
             }
         }
