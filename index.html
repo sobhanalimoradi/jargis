@@ -13,41 +13,39 @@
       }
     </script>
     <style>
-        body { background: #0f172a; color: white; font-family: ui-sans-serif, system-ui; }
-        .console { background: #1e293b; border: 1px solid #334155; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        body { background: #020617; color: #e2e8f0; font-family: sans-serif; }
+        .terminal { background: #0f172a; border: 1px solid #1e293b; }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen p-4">
 
     <div class="w-full max-w-lg space-y-4">
         
-        <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-            <label class="block text-[10px] uppercase font-bold text-slate-500 mb-1">Gemini API Key</label>
-            <input type="password" id="api-key" placeholder="Paste key here..." 
-                class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs outline-none focus:border-blue-500">
+        <div class="space-y-1">
+            <p class="text-[10px] font-bold text-slate-500 uppercase px-1">Gemini API Key</p>
+            <input type="text" id="api-key" placeholder="Enter your key here..." 
+                class="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm text-green-400 outline-none focus:border-blue-500">
         </div>
 
-        <div class="flex justify-between items-center px-2">
-            <h1 class="text-sm font-bold uppercase tracking-widest text-slate-400">Assistant Core</h1>
-            <div id="rec-dot" class="hidden flex items-center gap-2">
-                <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                <span class="text-[10px] uppercase font-bold text-red-500">Live Feed</span>
-            </div>
+        <div id="log" class="terminal h-96 w-full p-4 rounded-xl overflow-y-auto font-mono text-xs space-y-3 shadow-inner">
+            <div class="text-slate-500">System Ready.</div>
         </div>
 
-        <div id="log" class="console h-80 w-full p-4 rounded-lg overflow-y-auto font-mono text-xs space-y-3">
-            <div class="text-slate-500">System Ready. Paste your API key above to enable AI logic.</div>
-        </div>
-
-        <div class="space-y-2">
+        <div class="space-y-3">
             <div class="flex gap-2">
-                <input type="text" id="cmd-input" placeholder="Ask Gemini or type 'record'..." 
-                    class="flex-grow bg-slate-900 border border-slate-700 rounded p-3 outline-none focus:border-blue-500 text-sm">
-                <button onclick="handleInteraction()" id="run-btn" class="bg-blue-600 px-6 rounded font-bold text-xs uppercase">Send</button>
+                <input type="text" id="cmd-input" placeholder="Message Gemini..." 
+                    class="flex-grow bg-slate-900 border border-slate-700 rounded-lg p-4 outline-none focus:border-blue-500 text-sm">
+                <button onclick="handleInteraction()" id="run-btn" class="bg-blue-600 hover:bg-blue-500 px-6 rounded-lg font-bold text-xs uppercase">Send</button>
             </div>
-            <button onclick="toggleCapture()" id="manual-btn" class="w-full py-3 bg-slate-800 border border-slate-700 rounded text-xs font-bold uppercase">Toggle Screen Capture</button>
+            
+            <div class="flex gap-2">
+                <button onclick="toggleCapture()" id="manual-btn" class="flex-grow py-3 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-700 transition-all">
+                    Screen Capture
+                </button>
+                <button onclick="document.getElementById('log').innerHTML=''" class="px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-[10px] font-bold uppercase hover:bg-red-900/30 transition-all">
+                    Clear
+                </button>
+            </div>
         </div>
     </div>
 
@@ -55,78 +53,59 @@
         import { GoogleGenerativeAI } from "@google/generative-ai";
 
         let stream = null;
+
         window.handleInteraction = async function() {
-            const apiKey = document.getElementById('api-key').value;
+            const key = document.getElementById('api-key').value.trim();
             const input = document.getElementById('cmd-input');
             const prompt = input.value.trim();
             const btn = document.getElementById('run-btn');
 
             if (!prompt) return;
-            addLog(`YOU: ${prompt}`, "text-blue-400");
+            addLog(`YOU: ${prompt}`, "text-blue-400 font-bold");
             input.value = "";
 
-            // 1. Check for local hardware commands first
-            if (prompt.toLowerCase() === "record") {
-                toggleCapture();
-                return;
-            }
-
-            // 2. If not a local command, use Gemini
-            if (!apiKey) {
-                addLog("ERROR: Please enter an API key to use AI.", "text-red-500");
+            if (!key) {
+                addLog("ERROR: Paste your API key in the top box first.", "text-red-500");
                 return;
             }
 
             try {
                 btn.disabled = true;
-                const genAI = new GoogleGenerativeAI(apiKey);
+                const genAI = new GoogleGenerativeAI(key);
                 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
                 
                 const result = await model.generateContent(prompt);
                 const response = await result.response;
-                addLog(`GEMINI: ${response.text()}`, "text-green-400");
+                addLog(`AI: ${response.text()}`, "text-slate-200");
             } catch (err) {
-                addLog(`AI ERROR: ${err.message}`, "text-red-500");
+                addLog(`AI ERROR: Check if your key is correct.`, "text-red-500");
+                console.error(err);
             } finally {
                 btn.disabled = false;
             }
         }
 
         window.toggleCapture = async function() {
-            const dot = document.getElementById('rec-dot');
             const btn = document.getElementById('manual-btn');
-
             if (!stream) {
                 try {
-                    stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-                    dot.classList.remove('hidden');
-                    btn.innerText = "End Capture";
-                    addLog("Screen capture active.", "text-yellow-500");
-                    stream.getVideoTracks()[0].onended = () => toggleCapture();
+                    stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                    btn.innerText = "Stop Capture";
+                    btn.classList.add("text-red-500", "border-red-500/50");
+                    addLog("Screen sharing active.", "text-yellow-500");
                 } catch (err) {
-                    addLog("Capture denied.", "text-red-500");
+                    addLog("Capture cancelled.", "text-red-400");
                 }
             } else {
                 stream.getTracks().forEach(track => track.stop());
                 stream = null;
-                dot.classList.add('hidden');
-                btn.innerText = "Toggle Screen Capture";
-                addLog("Capture terminated.", "text-slate-500");
+                btn.innerText = "Screen Capture";
+                btn.classList.remove("text-red-500", "border-red-500/50");
+                addLog("Capture stopped.", "text-slate-500");
             }
         }
 
         function addLog(msg, color) {
             const log = document.getElementById('log');
             const div = document.createElement('div');
-            div.className = color;
-            div.innerText = msg;
-            log.appendChild(div);
-            log.scrollTop = log.scrollHeight;
-        }
-
-        document.getElementById('cmd-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') handleInteraction();
-        });
-    </script>
-</body>
-</html>
+            div.className = `border-b border
